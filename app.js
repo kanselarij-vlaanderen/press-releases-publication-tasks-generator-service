@@ -1,6 +1,11 @@
 import {app} from 'mu';
 import {querySudo as query, updateSudo as update} from '@lblod/mu-auth-sudo';
-import {findPressReleasesWithPublicationEvents, removeFuturePublicationDate} from './helpers/press-release-sparql-queries'
+import {
+	findPressReleasesWithPublicationEvents,
+	removeFuturePublicationDate,
+	getPublicationChannelsByPressReleaseUUID,
+	setPublicationStartDateTimeAndPublishedStartDateTime
+} from './helpers/press-release-sparql-queries'
 import {isNotNullOrUndefined} from "./helpers/util";
 
 app.post('/press-releases/:uuid/publish', async (req, res) => {
@@ -10,11 +15,8 @@ app.post('/press-releases/:uuid/publish', async (req, res) => {
 
 	// Op basis van de uuid uit de request wordt het persbericht (fabio:PressRelease)
 	// en bijhorend publication event (ebucore:PublicationEvent) opgezocht in de triplestore.
-	let queryResult;
-	let pressRelease;
-	let plannedStartDate;
-	let started;
-	let graph;
+	let queryResult, pressRelease, plannedStartDate, started, graph, publicationEvent, publicationChannels;
+	const currentDate = new Date();
 
 	try {
 		queryResult = await query(findPressReleasesWithPublicationEvents(pressReleaseUUID));
@@ -32,11 +34,10 @@ app.post('/press-releases/:uuid/publish', async (req, res) => {
 	} else {
 		pressRelease = queryResult.results.bindings[0].pressRelease.value;
 		graph = queryResult.results.bindings[0].graph.value;
-		plannedStartDate = queryResult.results.bindings[0].publicationStartDateTime ? queryResult.results.bindings[0].publicationStartDateTime.value: undefined;
+		publicationEvent = queryResult.results.bindings[0].publicationEvent.value;
+		plannedStartDate = queryResult.results.bindings[0].publicationStartDateTime ? queryResult.results.bindings[0].publicationStartDateTime.value : undefined;
 		started = queryResult.results.bindings[0].started ? queryResult.results.bindings[0].started.value : undefined;
-
 	}
-
 	// Indien het publication event reeds een ebucore:publicationStartDateTime heeft, wordt status 409 Conflict teruggegeven.
 	// Het persbericht is in dat geval al eerder gepubliceerd en kan niet opnieuw gepubliceerd worden.
 
@@ -51,8 +52,7 @@ app.post('/press-releases/:uuid/publish', async (req, res) => {
 
 	if (isNotNullOrUndefined(plannedStartDate) && new Date(plannedStartDate) > new Date()) {
 		try {
-			const result = await query(removeFuturePublicationDate(graph, pressReleaseUUID));
-			console.log(result);
+			await query(removeFuturePublicationDate(graph, pressReleaseUUID));
 		} catch (e) {
 			console.error(e);
 			res.sendStatus(500);
@@ -63,18 +63,25 @@ app.post('/press-releases/:uuid/publish', async (req, res) => {
 	// huidige tijd om aan te geven dat het persbericht nu gepubliceerd wordt.
 
 	try {
-		await query(setPublicationStartDateTimeAndPublishedStartDateTime(graph, pressReleaseUUID, new Date()));
+		await query(setPublicationStartDateTimeAndPublishedStartDateTime(graph, pressReleaseUUID, currentDate));
+
+		// Voor ieder publicatiekanaal ebucore:PublicationChannel dat gelinkt is aan het publication event, wordt een
+		// publication-task resource geinsert in de triplestore. Deze publication-task zal later opgepikt
+		// worden door andere microservice(s).`
+		await createPublicationTasksPerPublicationChannel(graph, pressReleaseUUID, currentDate);
+
+
 	} catch (e) {
 		console.error(e);
 		res.sendStatus(500);
 	}
 
-	// Voor ieder publicatiekanaal ebucore:PublicationChannel dat gelinkt is aan het publication event, wordt een
-	// publication-task resource geinsert in de triplestore. Deze publication-task zal later opgepikt
-	// worden door andere microservice(s).
-
-	// TODO:
-
 	res.sendStatus(200);
 
 });
+
+async function createPublicationTasksPerPublicationChannel(graph, pressReleaseUUID, currentDate) {
+	const publicationChannels = await query(getPublicationChannelsByPressReleaseUUID(graph, pressReleaseUUID))
+	console.log(publicationChannels.results.bindings);
+	return publicationChannels;
+}
