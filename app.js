@@ -3,6 +3,7 @@ import {querySudo as query, updateSudo as update} from '@lblod/mu-auth-sudo';
 import {
 	findPressReleasesWithPublicationEvents,
 	removeFuturePublicationDate,
+	createPublicationTask,
 	getPublicationChannelsByPressReleaseUUID,
 	setPublicationStartDateTimeAndPublishedStartDateTime
 } from './helpers/press-release-sparql-queries'
@@ -42,8 +43,8 @@ app.post('/press-releases/:uuid/publish', async (req, res) => {
 	// Het persbericht is in dat geval al eerder gepubliceerd en kan niet opnieuw gepubliceerd worden.
 
 	if (isNotNullOrUndefined(started)) {
-		res.status(409).send('Press-release already published.');
-		return;
+		// res.status(409).send('Press-release already published.');
+		// return;
 	}
 
 	// indien het persbericht gepland is om gepubliceerd te worden in de toekomst
@@ -68,7 +69,7 @@ app.post('/press-releases/:uuid/publish', async (req, res) => {
 		// Voor ieder publicatiekanaal ebucore:PublicationChannel dat gelinkt is aan het publication event, wordt een
 		// publication-task resource geinsert in de triplestore. Deze publication-task zal later opgepikt
 		// worden door andere microservice(s).`
-		await createPublicationTasksPerPublicationChannel(graph, pressReleaseUUID, currentDate);
+		await createPublicationTasksPerPublicationChannel(graph, pressReleaseUUID, publicationEvent);
 
 
 	} catch (e) {
@@ -80,8 +81,13 @@ app.post('/press-releases/:uuid/publish', async (req, res) => {
 
 });
 
-async function createPublicationTasksPerPublicationChannel(graph, pressReleaseUUID, currentDate) {
-	const publicationChannels = await query(getPublicationChannelsByPressReleaseUUID(graph, pressReleaseUUID))
-	console.log(publicationChannels.results.bindings);
-	return publicationChannels;
+async function createPublicationTasksPerPublicationChannel(graph, pressReleaseUUID, publicationEvent) {
+	const publicationChannelsQuery = await query(getPublicationChannelsByPressReleaseUUID(graph, pressReleaseUUID));
+
+	const promises = [];
+	publicationChannelsQuery.results.bindings.forEach(async (binding) => {
+		promises.push(query(createPublicationTask(graph, binding.pubChannel.value, publicationEvent)));
+	})
+
+	return await Promise.all(promises)
 }
