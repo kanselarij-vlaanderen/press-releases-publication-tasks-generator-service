@@ -1,5 +1,5 @@
 import {app} from 'mu';
-import {querySudo as query, updateSudo as update} from '@lblod/mu-auth-sudo';
+import {querySudo as query} from '@lblod/mu-auth-sudo';
 import {
 	findPressReleasesWithPublicationEvents,
 	removeFuturePublicationDate,
@@ -16,7 +16,7 @@ app.post('/press-releases/:uuid/publish', async (req, res) => {
 
 	// Op basis van de uuid uit de request wordt het persbericht (fabio:PressRelease)
 	// en bijhorend publication event (ebucore:PublicationEvent) opgezocht in de triplestore.
-	let queryResult, pressRelease, plannedStartDate, started, graph, publicationEvent, publicationChannels;
+	let queryResult, plannedStartDate, started, graph, publicationEvent, publicationChannels;
 	const currentDate = new Date();
 
 	try {
@@ -33,7 +33,6 @@ app.post('/press-releases/:uuid/publish', async (req, res) => {
 		res.sendStatus(404);
 		return;
 	} else {
-		pressRelease = queryResult.results.bindings[0].pressRelease.value;
 		graph = queryResult.results.bindings[0].graph.value;
 		publicationEvent = queryResult.results.bindings[0].publicationEvent.value;
 		plannedStartDate = queryResult.results.bindings[0].publicationStartDateTime ? queryResult.results.bindings[0].publicationStartDateTime.value : undefined;
@@ -87,7 +86,7 @@ async function createPublicationTasksPerPublicationChannel(graph, pressReleaseUU
 	const promises = [];
 	publicationChannelsQuery.results.bindings.forEach(async (binding) => {
 		promises.push(query(createPublicationTask(graph, binding.pubChannel.value, publicationEvent)));
-	})
+	});
 
 	return await Promise.all(promises)
 }

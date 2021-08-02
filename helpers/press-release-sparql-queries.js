@@ -79,7 +79,6 @@ export function getPublicationChannelsByPressReleaseUUID(graph, pressReleaseUUID
 
 }
 
-
 export function createPublicationTask(graph, publicationChannel,publicationEvent){
 
 	return `
