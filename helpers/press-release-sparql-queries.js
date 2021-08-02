@@ -1,4 +1,5 @@
-import {sparqlEscapeString, sparqlEscapeUri, sparqlEscapeDateTime, uuid} from 'mu';
+import { sparqlEscapeString, sparqlEscapeUri, sparqlEscapeDateTime, uuid } from 'mu';
+import { querySudo as query } from '@lblod/mu-auth-sudo';
 
 const PREFIXES = `
 		PREFIX mu: ${sparqlEscapeUri('http://mu.semte.ch/vocabularies/core/')}
@@ -8,10 +9,12 @@ const PREFIXES = `
 		PREFIX adms: ${sparqlEscapeUri('http://www.w3.org/ns/adms#')}
 		PREFIX dct: ${sparqlEscapeUri('http://purl.org/dc/terms/')}
 		PREFIX prov: ${sparqlEscapeUri('http://www.w3.org/ns/prov#')}
-		`
+		`;
 
-export function findPressReleasesWithPublicationEvents(id) {
-	return `
+export async function findPressReleasesWithPublicationEvents(id) {
+
+	try {
+		const queryResult = await query(`
 			 ${PREFIXES}
 			 
 			 SELECT ?graph ?pressRelease ?publicationEvent ?publicationStartDateTime ?started ?publicationChannels
@@ -25,11 +28,30 @@ export function findPressReleasesWithPublicationEvents(id) {
 				}
 			 }
 			 LIMIT 1
-			 `;
+			 `);
+
+		if (!queryResult.results.bindings.length) {
+			return null;
+		} else {
+			const bindings = queryResult.results.bindings[0];
+
+			return {
+				bindings,
+				pressRelease: bindings.pressRelease.value,
+				graph: bindings.graph.value,
+				publicationEvent: bindings.publicationEvent.value,
+				plannedStartDate: bindings.publicationStartDateTime ? bindings.publicationStartDateTime.value : undefined,
+				started: bindings.started ? bindings.started.value : undefined,
+			};
+		}
+	} catch (err) {
+		throw err;
+	}
+
 }
 
-export function removeFuturePublicationDate(graph, pressReleaseId) {
-	return `
+export function removeFuturePublicationDate(graph, pressRelease) {
+	return query(`
 		${PREFIXES}
 		
 		DELETE {
@@ -38,16 +60,15 @@ export function removeFuturePublicationDate(graph, pressReleaseId) {
 			}
 		} WHERE {
 			GRAPH ${sparqlEscapeUri(graph)} {
-				?pressRelease 		mu:uuid 						${sparqlEscapeString(pressReleaseId)};
-							  		ebucore:isScheduledOn 			?publicationEvent .
-				?publicationEvent	ebucore:publishedStartDateTime 	?publishedStartDateTime .
+				${sparqlEscapeUri(pressRelease)}		ebucore:isScheduledOn 			?publicationEvent .
+				?publicationEvent						ebucore:publishedStartDateTime 	?publishedStartDateTime .
 			}
 		}
-	`;
+	`);
 }
 
-export function setPublicationStartDateTimeAndPublishedStartDateTime(graph, pressReleaseId, dateTime) {
-	return `
+export function setPublicationStartDateTimeAndPublishedStartDateTime(graph, pressRelease, dateTime) {
+	return query(`
 		${PREFIXES}
 		
 		INSERT {
@@ -57,44 +78,63 @@ export function setPublicationStartDateTimeAndPublishedStartDateTime(graph, pres
 			}
 		} WHERE {
 			GRAPH ${sparqlEscapeUri(graph)} {
-				?pressRelease 		mu:uuid 							${sparqlEscapeString(pressReleaseId)} ;
-							  		ebucore:isScheduledOn 				?publicationEvent .
+				${sparqlEscapeUri(pressRelease)}	ebucore:isScheduledOn 				?publicationEvent .
 			}
 		}
-	`;
+	`);
 }
 
-export function getPublicationChannelsByPressReleaseUUID(graph, pressReleaseUUID) {
-	return `
+export function getPublicationChannelsByPressRelease(graph, pressRelease) {
+	return query(`
 		${PREFIXES}
 		
 		SELECT ?pressRelease ?pubChannel
 		WHERE {
 			GRAPH ${sparqlEscapeUri(graph)} {
-				?pressRelease   mu:uuid    					${sparqlEscapeString(pressReleaseUUID)} ;
-								ext:publicationChannels 	?pubChannel .
+				${sparqlEscapeUri(pressRelease)}		ext:publicationChannels 	?pubChannel .
 			}
 		}
-	`
+	`);
 
 }
 
-export function createPublicationTask(graph, publicationChannel,publicationEvent){
+export function createPublicationTask(graph, publicationChannel, publicationEvent) {
+	const newId = uuid();
+	const notStartedURI = 'http://themis.vlaanderen.be/id/concept/publication-task-status/not-started';
+	const now = new Date();
 
-	return `
+	return query(`
 		${PREFIXES}
 		INSERT DATA {
 			GRAPH ${sparqlEscapeUri(graph)} {
 		
-			vlpt:${uuid()} 		a 								ext:PublicationTask ;
-								adms:status 					${sparqlEscapeUri('http://themis.vlaanderen.be/id/concept/publication-task-status/not-started')} ;
-						    	dct:created						${sparqlEscapeDateTime(new Date())};
-						    	dct:modified					${sparqlEscapeDateTime(new Date())};
+			vlpt:${newId} 		a 								ext:PublicationTask ;
+								adms:status 					${sparqlEscapeUri(notStartedURI)} ;
+						    	dct:created						${sparqlEscapeDateTime(now)};
+						    	dct:modified					${sparqlEscapeDateTime(now)};
 						    	ext:publicationChannel			${sparqlEscapeUri(publicationChannel)};
 						    	prov:generated					${sparqlEscapeUri(publicationEvent)};
-						    	mu:uuid 						${sparqlEscapeString(uuid())}  .
+						    	mu:uuid 						${sparqlEscapeString(newId)}  .
 			}
 		} 
 
-	`
+	`);
+}
+
+export async function createPublicationTasksPerPublicationChannel(graph, pressRelease, publicationEvent) {
+
+	try {
+		// get publicaton-channels linked to the press-release
+		const publicationChannels = (await getPublicationChannelsByPressRelease(graph, pressRelease)).results.bindings;
+
+		// create  a publicationTask for every channel linked to the press-release
+		for (let publicationChannel of publicationChannels) {
+			await createPublicationTask(graph, publicationChannel.pubChannel.value, publicationEvent);
+		}
+
+		return;
+
+	} catch (err) {
+		throw err;
+	}
 }

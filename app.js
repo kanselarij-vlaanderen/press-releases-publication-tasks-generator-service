@@ -1,92 +1,77 @@
-import {app} from 'mu';
-import {querySudo as query} from '@lblod/mu-auth-sudo';
+import { app, errorHandler } from 'mu';
 import {
 	findPressReleasesWithPublicationEvents,
 	removeFuturePublicationDate,
 	createPublicationTask,
 	getPublicationChannelsByPressReleaseUUID,
-	setPublicationStartDateTimeAndPublishedStartDateTime
-} from './helpers/press-release-sparql-queries'
-import {isNotNullOrUndefined} from "./helpers/util";
+	setPublicationStartDateTimeAndPublishedStartDateTime,
+	createPublicationTasksPerPublicationChannel,
+} from './helpers/press-release-sparql-queries';
+import { isNotNullOrUndefined, isNullOrUndefined, handleGenericError } from './helpers/util';
 
-app.post('/press-releases/:uuid/publish', async (req, res) => {
+app.post('/press-releases/:uuid/publish', async (req, res, next) => {
 
 	// Retrieve press release uuid from request
 	const pressReleaseUUID = req.params.uuid;
 
-	// Op basis van de uuid uit de request wordt het persbericht (fabio:PressRelease)
-	// en bijhorend publication event (ebucore:PublicationEvent) opgezocht in de triplestore.
-	let queryResult, plannedStartDate, started, graph, publicationEvent, publicationChannels;
+	// Based on the request uuid the corresponding press-release (fabio:PressRelease) and 
+	// publication-event (ebucore:PublicationEvent) are retrieved from the triplestore.
 	const currentDate = new Date();
+	let queryResult;
 
 	try {
-		queryResult = await query(findPressReleasesWithPublicationEvents(pressReleaseUUID));
+		queryResult = await findPressReleasesWithPublicationEvents(pressReleaseUUID);
 	} catch (err) {
-		console.error(err);
-		res.sendStatus(500);
-		return;
+		return handleGenericError(err, next);
 	}
 
 
-	// Indien dit niet gevonden kan worden, geeft het endpoint status 404 Not Found terug.
-	if (!queryResult.results.bindings.length) {
+	// If these cannot be found, the api will respond wit 404 (not found).
+	if (isNullOrUndefined(queryResult)) {
 		res.sendStatus(404);
 		return;
-	} else {
-		graph = queryResult.results.bindings[0].graph.value;
-		publicationEvent = queryResult.results.bindings[0].publicationEvent.value;
-		plannedStartDate = queryResult.results.bindings[0].publicationStartDateTime ? queryResult.results.bindings[0].publicationStartDateTime.value : undefined;
-		started = queryResult.results.bindings[0].started ? queryResult.results.bindings[0].started.value : undefined;
-	}
-	// Indien het publication event reeds een ebucore:publicationStartDateTime heeft, wordt status 409 Conflict teruggegeven.
-	// Het persbericht is in dat geval al eerder gepubliceerd en kan niet opnieuw gepubliceerd worden.
-
-	if (isNotNullOrUndefined(started)) {
-		// res.status(409).send('Press-release already published.');
-		// return;
 	}
 
-	// indien het persbericht gepland is om gepubliceerd te worden in de toekomst
-	// (dwz ebucore:publishedStartDateTime bevat een datum in de toekomst),
-	// wordt deze datum verwijderd uit de triplestore. De publicatie-request overruled deze geplande datum
 
-	if (isNotNullOrUndefined(plannedStartDate) && new Date(plannedStartDate) > new Date()) {
+	// if the pulblication event already has a ebucore:publicationStartDateTime, the api will respond with status 409 (Conflict).
+	// in that case, the press-release has already been published and cannot be re-published.
+	if (isNotNullOrUndefined(queryResult.started)) {
+		res.status(409).send('Press-release already published.');
+		return;
+	}
+
+
+	// in case the press-release has been planned to be published in the future,
+	// (ebucore:publishedStartDateTime contains a date in the future),
+	// this date will be removed from the triplestore since a publication-request overrules a planned publication.
+	if (isNotNullOrUndefined(queryResult.plannedStartDate) && new Date(queryResult.plannedStartDate) > new Date()) {
 		try {
-			await query(removeFuturePublicationDate(graph, pressReleaseUUID));
-		} catch (e) {
-			console.error(e);
-			res.sendStatus(500);
+			await removeFuturePublicationDate(queryResult.graph, queryResult.pressRelease);
+		} catch (err) {
+			return handleGenericError(err, next);
 		}
 	}
 
-	// Vervolgens wordt ebucore:publicationStartDateTime en ebucore:publishedStartDateTime ingesteld op de
-	// huidige tijd om aan te geven dat het persbericht nu gepubliceerd wordt.
 
 	try {
-		await query(setPublicationStartDateTimeAndPublishedStartDateTime(graph, pressReleaseUUID, currentDate));
-
-		// Voor ieder publicatiekanaal ebucore:PublicationChannel dat gelinkt is aan het publication event, wordt een
-		// publication-task resource geinsert in de triplestore. Deze publication-task zal later opgepikt
-		// worden door andere microservice(s).`
-		await createPublicationTasksPerPublicationChannel(graph, pressReleaseUUID, publicationEvent);
+		// next the ebucore:publicationStartDateTime and ebucore:publishedStartDateTime will be set to the current time to
+		// to indicate that the press-release is being published now.
+		await setPublicationStartDateTimeAndPublishedStartDateTime(queryResult.graph, queryResult.pressRelease, currentDate);
 
 
-	} catch (e) {
-		console.error(e);
-		res.sendStatus(500);
+		// for every publication-channel (ebucore:PublicationChannel) related to the  publication-event,
+		// a publicaton-task resource will be inserted to the triplestore.
+		// this publication-task will be picked up by the other micro-service(s).
+		await createPublicationTasksPerPublicationChannel(queryResult.graph, queryResult.pressRelease, queryResult.publicationEvent);
+
+	} catch (err) {
+		return handleGenericError(err, next);
 	}
 
+	// if all went well, we respond with 200 (success)
 	res.sendStatus(200);
 
 });
 
-async function createPublicationTasksPerPublicationChannel(graph, pressReleaseUUID, publicationEvent) {
-	const publicationChannelsQuery = await query(getPublicationChannelsByPressReleaseUUID(graph, pressReleaseUUID));
-
-	const promises = [];
-	publicationChannelsQuery.results.bindings.forEach(async (binding) => {
-		promises.push(query(createPublicationTask(graph, binding.pubChannel.value, publicationEvent)));
-	});
-
-	return await Promise.all(promises)
-}
+// use mu errorHandler middleware.
+app.use(errorHandler);
