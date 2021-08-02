@@ -24,7 +24,6 @@ export async function findPressReleasesWithPublicationEvents(id) {
 									       			ebucore:isScheduledOn 						?publicationEvent .
 					OPTIONAL { ?publicationEvent 	ebucore:publicationStartDateTime			?started }
 					OPTIONAL { ?publicationEvent 	ebucore:publishedStartDateTime	 			?publicationStartDateTime }
-					OPTIONAL { ?publicationEvent 	ebucore:hasChannelPublicationEvent 			?publicationChannels }
 				}
 			 }
 			 LIMIT 1
