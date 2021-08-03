@@ -6,7 +6,7 @@ import {
 	getPublicationChannelsByPressReleaseUUID,
 	setPublicationStartDateTimeAndPublishedStartDateTime,
 	createPublicationTasksPerPublicationChannel,
-	getPlannedPublicationEvents
+	getPlannedPublicationEvents,
 } from './helpers/press-release-sparql-queries';
 import { isNotNullOrUndefined, isNullOrUndefined, handleGenericError } from './helpers/util';
 
@@ -89,8 +89,8 @@ app.post('/delta', async (req, res, next) => {
 			// Create a publication task for every publicationEvent the query returns
 			await createPublicationTasksPerPublicationChannel(pubEvent.graph, null, pubEvent.publicationEvent);
 
-			// update every publicationEvent so that we know it has started
-			// TODO:
+			// update publicationEvent so that we know it has started
+			await setPublicationStartDateTimeAndPublishedStartDateTime(pubEvent.graph, null, new Date(), pubEvent.publicationEvent);
 		}
 
 	} catch (err) {

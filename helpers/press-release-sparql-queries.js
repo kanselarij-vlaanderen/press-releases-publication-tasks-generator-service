@@ -60,27 +60,36 @@ export function removeFuturePublicationDate(graph, pressRelease) {
 			}
 		} WHERE {
 			GRAPH ${sparqlEscapeUri(graph)} {
-				${sparqlEscapeUri(pressRelease)}		ebucore:isScheduledOn 			?publicationEvent .
-				?publicationEvent						ebucore:publishedStartDateTime 	?publishedStartDateTime .
+				${sparqlEscapeUri(pressRelease)}		ebucore:isScheduledOn 				?publicationEvent .
+				?publicationEvent						ebucore:publishedStartDateTime 		?publishedStartDateTime .
 			}
 		}
 	`);
 }
 
-export function setPublicationStartDateTimeAndPublishedStartDateTime(graph, pressRelease, dateTime) {
+export function setPublicationStartDateTimeAndPublishedStartDateTime(graph, pressRelease, dateTime, publicationEvent = null) {
+
+	// if press release is undefined and publicationEvent is defined, it will update by publication event
+	// if press release is defined and publicationEvent is undefined, it will update by press release
+
+	const byPressRelease = isNotNullOrUndefined(pressRelease);
+
+	const where = byPressRelease ? `WHERE {
+			GRAPH ${sparqlEscapeUri(graph)} {
+				${sparqlEscapeUri(pressRelease)}	ebucore:isScheduledOn 				?publicationEvent .
+			}
+		}` : '';
+
 	return query(`
 		${PREFIXES}
 		
 		INSERT {
 			GRAPH ${sparqlEscapeUri(graph)} {
-				?publicationEvent	ebucore:publicationStartDateTime 	${sparqlEscapeDateTime(dateTime)} ;
+				${byPressRelease ? '?publicationEvent' : publicationEvent}	ebucore:publicationStartDateTime 	${sparqlEscapeDateTime(dateTime)} ;
 									ebucore:publishedStartDateTime 		${sparqlEscapeDateTime(dateTime)} .
 			}
-		} WHERE {
-			GRAPH ${sparqlEscapeUri(graph)} {
-				${sparqlEscapeUri(pressRelease)}	ebucore:isScheduledOn 				?publicationEvent .
-			}
-		}
+		} 
+		${where}
 	`);
 }
 
@@ -133,7 +142,7 @@ export async function createPublicationTasksPerPublicationChannel(graph, pressRe
 			// get publicaton-channels linked to the publication-event
 			publicationChannels = (await getPublicationChannelsByPublicationEvent(graph, publicationEvent)).results.bindings;
 		}
-		
+
 		// create  a publicationTask for every channel linked to the press-release
 		for (let publicationChannel of publicationChannels) {
 			await createPublicationTask(graph, publicationChannel.pubChannel.value, publicationEvent);
