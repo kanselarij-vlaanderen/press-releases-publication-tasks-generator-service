@@ -1,3 +1,4 @@
+import { ENVIRONMENT } from './environment';
 import { app, errorHandler } from 'mu';
 import {
 	findPressReleasesWithPublicationEvents,
@@ -6,9 +7,17 @@ import {
 	getPublicationChannelsByPressReleaseUUID,
 	setPublicationStartDateTimeAndPublishedStartDateTime,
 	createPublicationTasksPerPublicationChannel,
-	getPlannedPublicationEvents
+	getPlannedPublicationEvents,
 } from './helpers/press-release-sparql-queries';
 import { isNotNullOrUndefined, isNullOrUndefined, handleGenericError } from './helpers/util';
+import { CronJob } from 'cron';
+
+//  Create cron job that calls /delta endpoint that checks for 
+//  unpublished publication-events and creates publication-tasks for them
+new CronJob(ENVIRONMENT.cronFrequency, () => {
+	request.post('http://localhost/delta/');
+}, null, true);
+
 
 app.post('/press-releases/:uuid/publish', async (req, res, next) => {
 
