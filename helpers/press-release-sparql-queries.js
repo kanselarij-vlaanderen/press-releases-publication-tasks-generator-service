@@ -114,7 +114,7 @@ export function createPublicationTask(graph, publicationChannel, publicationEven
 						    	ext:publicationChannel			${sparqlEscapeUri(publicationChannel)};
 						    	mu:uuid 						${sparqlEscapeString(newId)}  .
 						    	
-			${sparqlEscapeUri(publicationEvent)} 	prov:generated		vlpt:${newId} .xz
+			${sparqlEscapeUri(publicationEvent)} 	prov:generated		vlpt:${newId} .
 			}
 		} 
 
