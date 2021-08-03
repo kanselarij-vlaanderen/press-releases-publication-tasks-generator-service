@@ -50,6 +50,10 @@ Response
     404 Not Found if the press release with the given uuid is not found
 
 
+### POST /delta
+
+This endpoint checks if there are publication events to be published,if so it creates the publication tasks related to those events.
+
 # Model
 ## Used prefixes
 
