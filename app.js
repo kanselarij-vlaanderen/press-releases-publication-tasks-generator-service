@@ -85,8 +85,8 @@ app.post('/delta', async (req, res, next) => {
 		// - no ebucore:publicationStartDateTime
 		const publicationEventsQueryResults = await getPlannedPublicationEvents();
 
-		// Create a publication task for every publicationEvent
 		for (const pubEvent of publicationEventsQueryResults) {
+			// Create a publication task for every publicationEvent the query returns
 			await createPublicationTasksPerPublicationChannel(pubEvent.graph, null, pubEvent.publicationEvent);
 
 			// update every publicationEvent so that we know it has started
@@ -100,7 +100,7 @@ app.post('/delta', async (req, res, next) => {
 	// if all went well, we respond with 200 (success)
 	res.sendStatus(200);
 	return;
-	
+
 });
 
 // use mu errorHandler middleware.

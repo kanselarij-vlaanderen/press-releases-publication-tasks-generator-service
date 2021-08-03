@@ -133,9 +133,7 @@ export async function createPublicationTasksPerPublicationChannel(graph, pressRe
 			// get publicaton-channels linked to the publication-event
 			publicationChannels = (await getPublicationChannelsByPublicationEvent(graph, publicationEvent)).results.bindings;
 		}
-
-		console.log(publicationChannels);
-
+		
 		// create  a publicationTask for every channel linked to the press-release
 		for (let publicationChannel of publicationChannels) {
 			await createPublicationTask(graph, publicationChannel.pubChannel.value, publicationEvent);
