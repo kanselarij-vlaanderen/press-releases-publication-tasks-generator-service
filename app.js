@@ -6,6 +6,7 @@ import {
 	getPublicationChannelsByPressReleaseUUID,
 	setPublicationStartDateTimeAndPublishedStartDateTime,
 	createPublicationTasksPerPublicationChannel,
+	getPlannedPublicationEvents
 } from './helpers/press-release-sparql-queries';
 import { isNotNullOrUndefined, isNullOrUndefined, handleGenericError } from './helpers/util';
 
@@ -70,7 +71,36 @@ app.post('/press-releases/:uuid/publish', async (req, res, next) => {
 
 	// if all went well, we respond with 200 (success)
 	res.sendStatus(200);
+	return;
 
+});
+
+
+app.post('/delta', async (req, res, next) => {
+
+	try {
+		// when a new notification arrives at /delta a query is executed at the triplestore that
+		// selects all publication-events with:
+		// - a ebucore:publishedStartDateTime in the past
+		// - no ebucore:publicationStartDateTime
+		const publicationEventsQueryResults = await getPlannedPublicationEvents();
+
+		// Create a publication task for every publicationEvent
+		for (const pubEvent of publicationEventsQueryResults) {
+			await createPublicationTasksPerPublicationChannel(pubEvent.graph, null, pubEvent.publicationEvent);
+
+			// update every publicationEvent so that we know it has started
+			// TODO:
+		}
+
+	} catch (err) {
+		return handleGenericError(err, next);
+	}
+
+	// if all went well, we respond with 200 (success)
+	res.sendStatus(200);
+	return;
+	
 });
 
 // use mu errorHandler middleware.

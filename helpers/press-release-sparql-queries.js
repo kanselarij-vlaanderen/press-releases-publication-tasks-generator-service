@@ -1,5 +1,6 @@
 import { sparqlEscapeString, sparqlEscapeUri, sparqlEscapeDateTime, uuid } from 'mu';
 import { querySudo as query } from '@lblod/mu-auth-sudo';
+import { isNotNullOrUndefined, isNullOrUndefined } from './util';
 
 const PREFIXES = `
 		PREFIX mu: ${sparqlEscapeUri('http://mu.semte.ch/vocabularies/core/')}
@@ -110,7 +111,7 @@ export function createPublicationTask(graph, publicationChannel, publicationEven
 			vlpt:${newId} 		a 								ext:PublicationTask ;
 								adms:status 					${sparqlEscapeUri(notStartedURI)} ;
 						    	dct:created						${sparqlEscapeDateTime(now)};
-						    	dct:modified					${sparqlEscapeDateTime(now)};
+						    	dct:modified						${sparqlEscapeDateTime(now)};
 						    	ext:publicationChannel			${sparqlEscapeUri(publicationChannel)};
 						    	mu:uuid 						${sparqlEscapeString(newId)}  .
 						    	
@@ -122,10 +123,18 @@ export function createPublicationTask(graph, publicationChannel, publicationEven
 }
 
 export async function createPublicationTasksPerPublicationChannel(graph, pressRelease, publicationEvent) {
+	let publicationChannels;
 
 	try {
-		// get publicaton-channels linked to the press-release
-		const publicationChannels = (await getPublicationChannelsByPressRelease(graph, pressRelease)).results.bindings;
+		if (isNotNullOrUndefined(pressRelease)) {
+			// get publicaton-channels linked to the press-release
+			publicationChannels = (await getPublicationChannelsByPressRelease(graph, pressRelease)).results.bindings;
+		} else {
+			// get publicaton-channels linked to the publication-event
+			publicationChannels = (await getPublicationChannelsByPublicationEvent(graph, publicationEvent)).results.bindings;
+		}
+
+		console.log(publicationChannels);
 
 		// create  a publicationTask for every channel linked to the press-release
 		for (let publicationChannel of publicationChannels) {
@@ -137,4 +146,53 @@ export async function createPublicationTasksPerPublicationChannel(graph, pressRe
 	} catch (err) {
 		throw err;
 	}
+}
+
+export function getPublicationChannelsByPublicationEvent(graph, publicationEvent) {
+	return query(`
+		${PREFIXES}
+		
+		SELECT ?pubChannel
+		WHERE {
+			GRAPH ${sparqlEscapeUri(graph)} {
+				${sparqlEscapeUri(publicationEvent)}	ext:publicationChannels 	?pubChannel .
+			}
+		}
+	`);
+
+}
+
+export async function getPlannedPublicationEvents() {
+	const now = new Date();
+	const queryResult = await query(`
+			${PREFIXES}
+			
+			SELECT ?graph ?publicationEvent
+			 WHERE {
+				GRAPH ?graph {
+					{
+						?publicationEvent		a		ebucore:PublicationEvent .
+						FILTER NOT EXISTS { ?publicationEvent 	ebucore:publicationStartDateTime 	?publicationStartDateTime }
+					}
+					UNION	
+					{
+						?publicationEvent		a									ebucore:PublicationEvent ;
+												ebucore:publishedStartDateTime 		?publishedStartDateTime .
+						FILTER ( ?publishedStartDateTime <= ${sparqlEscapeDateTime(now)} )  
+					}
+				}
+			 }	
+	`);
+
+	if (!queryResult.results || !queryResult.results.bindings) {
+		return [];
+	}
+
+	return queryResult.results.bindings.map((binding) => {
+		return {
+			graph: binding.graph.value,
+			publicationEvent: binding.publicationEvent.value,
+		};
+	});
+
 }
