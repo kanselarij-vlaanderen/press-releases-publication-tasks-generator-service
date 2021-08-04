@@ -11,6 +11,7 @@ import {
 } from './helpers/press-release-sparql-queries';
 import { isNotNullOrUndefined, isNullOrUndefined, handleGenericError } from './helpers/util';
 import { CronJob } from 'cron';
+import request from 'request';
 
 //  Create cron job that calls /delta endpoint that checks for 
 //  unpublished publication-events and creates publication-tasks for them
