@@ -11,10 +11,8 @@ const PREFIXES = `
 		PREFIX prov: ${sparqlEscapeUri('http://www.w3.org/ns/prov#')}
 		`;
 
-export async function findPressReleasesWithPublicationEvents(id) {
-
-	try {
-		const queryResult = await query(`
+export async function findPressReleasesWithPublicationEvent(id) {
+    const queryResult = await query(`
 			 ${PREFIXES}
 			 
 			 SELECT ?graph ?pressRelease ?publicationEvent ?publicationStartDateTime ?started ?publicationChannels
@@ -29,28 +27,25 @@ export async function findPressReleasesWithPublicationEvents(id) {
 			 LIMIT 1
 			 `);
 
-		if (!queryResult.results.bindings.length) {
-			return null;
-		} else {
-			const bindings = queryResult.results.bindings[0];
+    if (!queryResult.results.bindings.length) {
+        return null;
+    } else {
+        const bindings = queryResult.results.bindings[0];
 
-			return {
-				bindings,
-				pressRelease: bindings.pressRelease.value,
-				graph: bindings.graph.value,
-				publicationEvent: bindings.publicationEvent.value,
-				plannedStartDate: bindings.publicationStartDateTime ? bindings.publicationStartDateTime.value : undefined,
-				started: bindings.started ? bindings.started.value : undefined,
-			};
-		}
-	} catch (err) {
-		throw err;
-	}
+        return {
+            bindings,
+            pressRelease: bindings.pressRelease.value,
+            graph: bindings.graph.value,
+            publicationEvent: bindings.publicationEvent.value,
+            plannedStartDate: bindings.publicationStartDateTime ? bindings.publicationStartDateTime.value : undefined,
+            started: bindings.started ? bindings.started.value : undefined,
+        };
+    }
 
 }
 
 export function removeFuturePublicationDate(graph, pressRelease) {
-	return query(`
+    return query(`
 		${PREFIXES}
 		
 		DELETE {
@@ -66,8 +61,8 @@ export function removeFuturePublicationDate(graph, pressRelease) {
 	`);
 }
 
-export function setPublicationStartDateTimeAndPublishedStartDateTime(graph, pressRelease, dateTime) {
-	return query(`
+export function startPublication(graph, pressRelease, dateTime) {
+    return query(`
 		${PREFIXES}
 		
 		INSERT {
@@ -84,13 +79,14 @@ export function setPublicationStartDateTimeAndPublishedStartDateTime(graph, pres
 }
 
 export function getPublicationChannelsByPressRelease(graph, pressRelease) {
-	return query(`
+    return query(`
 		${PREFIXES}
 		
 		SELECT ?pressRelease ?pubChannel
 		WHERE {
 			GRAPH ${sparqlEscapeUri(graph)} {
-				${sparqlEscapeUri(pressRelease)}		ext:publicationChannels 	?pubChannel .
+				${sparqlEscapeUri(pressRelease)}		ebucore:isScheduledOn 				?publicationEvent .
+				?publicationEvent						ebucore:hasChannelPublicationEvent 	?pubChannel .
 			}
 		}
 	`);
@@ -98,11 +94,11 @@ export function getPublicationChannelsByPressRelease(graph, pressRelease) {
 }
 
 export function createPublicationTask(graph, publicationChannel, publicationEvent) {
-	const newId = uuid();
-	const notStartedURI = 'http://themis.vlaanderen.be/id/concept/publication-task-status/not-started';
-	const now = new Date();
+    const newId = uuid();
+    const notStartedURI = 'http://themis.vlaanderen.be/id/concept/publication-task-status/not-started';
+    const now = new Date();
 
-	return query(`
+    return query(`
 		${PREFIXES}
 		INSERT DATA {
 			GRAPH ${sparqlEscapeUri(graph)} {
@@ -122,19 +118,13 @@ export function createPublicationTask(graph, publicationChannel, publicationEven
 }
 
 export async function createPublicationTasksPerPublicationChannel(graph, pressRelease, publicationEvent) {
+    // get publicaton-channels linked to the press-release
+    const publicationChannels = (await getPublicationChannelsByPressRelease(graph, pressRelease)).results.bindings;
 
-	try {
-		// get publicaton-channels linked to the press-release
-		const publicationChannels = (await getPublicationChannelsByPressRelease(graph, pressRelease)).results.bindings;
+    // create  a publicationTask for every channel linked to the press-release
+    for (let publicationChannel of publicationChannels) {
+        await createPublicationTask(graph, publicationChannel.pubChannel.value, publicationEvent);
+    }
 
-		// create  a publicationTask for every channel linked to the press-release
-		for (let publicationChannel of publicationChannels) {
-			await createPublicationTask(graph, publicationChannel.pubChannel.value, publicationEvent);
-		}
-
-		return;
-
-	} catch (err) {
-		throw err;
-	}
+    return;
 }

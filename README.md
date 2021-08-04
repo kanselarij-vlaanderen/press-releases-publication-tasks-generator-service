@@ -78,6 +78,29 @@ ext:PublicationTask
 |   uuid  |  mu:uuid |  unique ID |
 |   publication-channel  |  ext:publicationChannel |  publication channel the press release has to be published to |
 
+## Press-release
+### Class
+
+fabio:PressRelease
+
+#### Properties
+
+| Name    |  Predicate   |  Definition  |
+|---|---|---|
+|    uuid                   |  mu:uuid                          |  press release uuid    |                 
+|    publicationEvent       |  ebucore:isScheduledOn            |  the publication event linked to this press release with info about when and where to publish this press-release |
+
+## Publication Event
+### Class
+
+ebucore:PublicationEvent
+
+#### Properties
+
+| Name    |  Predicate   |  Definition  |
+|---|---|---|
+|    planned-start-date        |  ebucore:publicationStartDateTime           |  the date the related press release is planned to be published |
+|    started                   |  ebucore:publishedStartDateTime             |  the dateTime the related press-release has been published    |                 
 
 
 #### Publication-task statuses
