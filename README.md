@@ -94,7 +94,7 @@ The following environment variables can be configured:
 
 | Key    |  Default   |  Description  |
 |---|---|---|
-| PUBLICATION_CRON_FREQUENCY_PATTERN |_'* */12 * * * *' | cron pattern for frequency of publication tasks
+| PUBLICATION_CRON_FREQUENCY_PATTERN | _'* */12 * * * *' | cron pattern for frequency of publication tasks
 
 ### Available Cron patterns:
 - Asterisk. E.g. *
