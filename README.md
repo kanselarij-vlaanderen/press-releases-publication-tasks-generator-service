@@ -87,3 +87,19 @@ ext:PublicationTask
 #### Publication-task statuses
 
     http://themis.vlaanderen.be/id/concept/publication-task-status/not-started
+
+# Configuration
+
+The following environment variables can be configured:
+
+| Key    |  Default   |  Description  |
+|---|---|---|
+| PUBLICATION_CRON_FREQUENCY_PATTERN |_'* */12 * * * *' | cron pattern for frequency of publication tasks
+
+### Available Cron patterns:
+- Asterisk. E.g. *
+- Ranges. E.g. 1-3,5
+- Steps. E.g. */2
+
+for more info on cron patters: [http://crontab.org/](http://crontab.org/)
+
