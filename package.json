@@ -9,6 +9,7 @@
   "author": "Michael <michael.vervloet@ordina.be> (https://www.ordina.be)",
   "license": "MIT",
   "dependencies": {
-    "@lblod/mu-auth-sudo": "^0.3.2"
+    "@lblod/mu-auth-sudo": "^0.3.2",
+    "cron": "^1.8.2"
   }
 }
