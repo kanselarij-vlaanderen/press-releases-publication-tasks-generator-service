@@ -61,7 +61,7 @@ export function removeFuturePublicationDate(graph, pressRelease) {
 	`);
 }
 
-export function startPublication(graph, pressRelease, dateTime) {
+export function startPublicationByPressRelease(graph, pressRelease, dateTime) {
     return query(`
 		${PREFIXES}
 		
@@ -78,6 +78,26 @@ export function startPublication(graph, pressRelease, dateTime) {
 	`);
 }
 
+export function startPublicationByPublicationEvent(graph, publicationEvent, dateTime) {
+    return query(`
+		${PREFIXES}
+		
+		INSERT {
+			GRAPH ${sparqlEscapeUri(graph)} {
+				${sparqlEscapeUri(publicationEvent)}    ebucore:publicationStartDateTime 	${sparqlEscapeDateTime(dateTime)} ;
+									                    ebucore:publishedStartDateTime 		${sparqlEscapeDateTime(dateTime)} .
+			}
+		} WHERE {
+			GRAPH ${sparqlEscapeUri(graph)} {
+				${sparqlEscapeUri(publicationEvent)}	a 				                    ebucore:PublicationEvent .
+			}
+		}
+	`);
+
+    // TO CHECK: is where needed here and correct?
+}
+
+
 export function getPublicationChannelsByPressRelease(graph, pressRelease) {
     return query(`
 		${PREFIXES}
@@ -87,6 +107,20 @@ export function getPublicationChannelsByPressRelease(graph, pressRelease) {
 			GRAPH ${sparqlEscapeUri(graph)} {
 				${sparqlEscapeUri(pressRelease)}		ebucore:isScheduledOn 				?publicationEvent .
 				?publicationEvent						ebucore:hasChannelPublicationEvent 	?pubChannel .
+			}
+		}
+	`);
+
+}
+
+export function getPublicationChannelsByPublicationEvent(graph, publicationEvent) {
+    return query(`
+		${PREFIXES}
+		
+		SELECT ?pubChannel
+		WHERE {
+			GRAPH ${sparqlEscapeUri(graph)} {
+				${sparqlEscapeUri(publicationEvent)}	ebucore:hasChannelPublicationEvent 	?pubChannel .
 			}
 		}
 	`);
@@ -117,7 +151,7 @@ export function createPublicationTask(graph, publicationChannel, publicationEven
 	`);
 }
 
-export async function createPublicationTasksPerPublicationChannel(graph, pressRelease, publicationEvent) {
+export async function createTasksByPressRelease(graph, pressRelease, publicationEvent) {
     // get publicaton-channels linked to the press-release
     const publicationChannels = (await getPublicationChannelsByPressRelease(graph, pressRelease)).results.bindings;
 
@@ -127,4 +161,48 @@ export async function createPublicationTasksPerPublicationChannel(graph, pressRe
     }
 
     return;
+}
+
+export async function createTasksByPublicationEvent(graph, publicationEvent) {
+    // get publicaton-channels linked to the publication event
+    const publicationChannels = (await getPublicationChannelsByPublicationEvent(graph, publicationEvent)).results.bindings;
+
+    // create  a publicationTask for every channel linked to the press-release
+    for (let publicationChannel of publicationChannels) {
+        await createPublicationTask(graph, publicationChannel.pubChannel.value, publicationEvent);
+    }
+}
+
+
+export async function findPlannedPublicationEvents() {
+    const now = new Date();
+    const queryResult = await query(`
+			${PREFIXES}
+			
+			SELECT ?graph ?publicationEvent
+			 WHERE {
+				GRAPH ?graph {
+					{
+						?publicationEvent		a		                            ebucore:PublicationEvent ;
+						                        ebucore:publishedStartDateTime 		?plannedStart .
+						FILTER ( ?plannedStart <= ${sparqlEscapeDateTime(now)} )  
+						FILTER NOT EXISTS { ?publicationEvent 	ebucore:publicationStartDateTime 	?started } 
+					}
+				}
+			 }	
+	`);
+
+    // TO CHECK: sparql query correct ?
+
+    if (!queryResult.results || !queryResult.results.bindings) {
+        return [];
+    }
+
+    return queryResult.results.bindings.map((binding) => {
+        return {
+            graph: binding.graph.value,
+            publicationEvent: binding.publicationEvent.value,
+        };
+    });
+
 }

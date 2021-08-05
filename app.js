@@ -4,8 +4,11 @@ import {
     removeFuturePublicationDate,
     createPublicationTask,
     getPublicationChannelsByPressReleaseUUID,
-    setPublicationStartDateTimeAndPublishedStartDateTime,
-    createPublicationTasksPerPublicationChannel,
+    startPublicationByPressRelease,
+    createTasksByPressRelease,
+    findPlannedPublicationEvents,
+    createTasksByPublicationEvent,
+    startPublicationByPublicationEvent,
 } from './helpers/press-release-sparql-queries';
 import { handleGenericError } from './helpers/util';
 
@@ -55,13 +58,13 @@ app.post('/press-releases/:uuid/publish', async (req, res, next) => {
     try {
         // next the ebucore:publicationStartDateTime and ebucore:publishedStartDateTime will be set to the current time to
         // to indicate that the press-release is being published now.
-        await startPublication(queryResult.graph, queryResult.pressRelease, currentDate);
+        await startPublicationByPressRelease(queryResult.graph, queryResult.pressRelease, currentDate);
 
 
         // for every publication-channel (ebucore:PublicationChannel) related to the  publication-event,
         // a publicaton-task resource will be inserted to the triplestore.
         // this publication-task will be picked up by the other micro-service(s).
-        await createPublicationTasksPerPublicationChannel(queryResult.graph, queryResult.pressRelease, queryResult.publicationEvent);
+        await createTasksByPressRelease(queryResult.graph, queryResult.pressRelease, queryResult.publicationEvent);
 
     } catch (err) {
         return handleGenericError(err, next);
@@ -69,6 +72,34 @@ app.post('/press-releases/:uuid/publish', async (req, res, next) => {
 
     // if all went well, we respond with 200 (success)
     res.sendStatus(200);
+
+});
+
+app.post('/delta', async (req, res, next) => {
+
+    try {
+        // when a new notification arrives at /delta a query is executed at the triplestore that
+        // selects all publication-events with:
+        // - a ebucore:publishedStartDateTime in the past
+        // - no ebucore:publicationStartDateTime
+        const publicationEventsQueryResults = await findPlannedPublicationEvents();
+        console.log(`Found ${publicationEventsQueryResults.length} planned publication events`)
+
+        for (const pubEvent of publicationEventsQueryResults) {
+            // Create a publication task for every publicationEvent the query returns
+            await createTasksByPublicationEvent(pubEvent.graph, pubEvent.publicationEvent);
+
+            // update publicationEvent so that we know it has started
+            await startPublicationByPublicationEvent(pubEvent.graph, pubEvent.publicationEvent, new Date());
+        }
+
+    } catch (err) {
+        return handleGenericError(err, next);
+    }
+
+    // if all went well, we respond with 200 (success)
+    res.sendStatus(200);
+    return;
 
 });
 
