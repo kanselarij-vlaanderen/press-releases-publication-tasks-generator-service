@@ -11,7 +11,7 @@ const PREFIXES = `
 		PREFIX prov: ${sparqlEscapeUri('http://www.w3.org/ns/prov#')}
 		`;
 
-export async function findPressReleasesWithPublicationEvent(id) {
+export async function findPressReleaseWithPublicationEvent(id) {
     const queryResult = await query(`
 			 ${PREFIXES}
 			 
@@ -82,19 +82,14 @@ export function startPublicationByPublicationEvent(graph, publicationEvent, date
     return query(`
 		${PREFIXES}
 		
-		INSERT {
+		INSERT DATA {
 			GRAPH ${sparqlEscapeUri(graph)} {
 				${sparqlEscapeUri(publicationEvent)}    ebucore:publicationStartDateTime 	${sparqlEscapeDateTime(dateTime)} ;
 									                    ebucore:publishedStartDateTime 		${sparqlEscapeDateTime(dateTime)} .
 			}
-		} WHERE {
-			GRAPH ${sparqlEscapeUri(graph)} {
-				${sparqlEscapeUri(publicationEvent)}	a 				                    ebucore:PublicationEvent .
-			}
 		}
 	`);
 
-    // TO CHECK: is where needed here and correct?
 }
 
 
@@ -106,7 +101,7 @@ export function getPublicationChannelsByPressRelease(graph, pressRelease) {
 		WHERE {
 			GRAPH ${sparqlEscapeUri(graph)} {
 				${sparqlEscapeUri(pressRelease)}		ebucore:isScheduledOn 				?publicationEvent .
-				?publicationEvent						ebucore:hasChannelPublicationEvent 	?pubChannel .
+				?pubChannel						        ebucore:hasChannelPublicationEvent 	?publicationEvent .
 			}
 		}
 	`);
@@ -120,7 +115,7 @@ export function getPublicationChannelsByPublicationEvent(graph, publicationEvent
 		SELECT ?pubChannel
 		WHERE {
 			GRAPH ${sparqlEscapeUri(graph)} {
-				${sparqlEscapeUri(publicationEvent)}	ebucore:hasChannelPublicationEvent 	?pubChannel .
+				?pubChannel	ebucore:hasChannelPublicationEvent 	${sparqlEscapeUri(publicationEvent)} .
 			}
 		}
 	`);
@@ -191,12 +186,6 @@ export async function findPlannedPublicationEvents() {
 				}
 			 }	
 	`);
-
-    // TO CHECK: sparql query correct ?
-
-    if (!queryResult.results || !queryResult.results.bindings) {
-        return [];
-    }
 
     return queryResult.results.bindings.map((binding) => {
         return {

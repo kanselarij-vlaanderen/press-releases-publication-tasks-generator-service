@@ -1,6 +1,6 @@
 import { app, errorHandler } from 'mu';
 import {
-    findPressReleasesWithPublicationEvent,
+    findPressReleaseWithPublicationEvent,
     removeFuturePublicationDate,
     createPublicationTask,
     getPublicationChannelsByPressReleaseUUID,
@@ -13,6 +13,7 @@ import {
 import { handleGenericError } from './helpers/util';
 import { CronJob } from 'cron';
 import request from 'request';
+import { ENVIRONMENT } from './environment';
 
 //  Create cron job that calls /delta endpoint that checks for
 //  unpublished publication-events and creates publication-tasks for them
@@ -31,7 +32,7 @@ app.post('/press-releases/:uuid/publish', async (req, res, next) => {
     let queryResult;
 
     try {
-        queryResult = await findPressReleasesWithPublicationEvent(pressReleaseUUID);
+        queryResult = await findPressReleaseWithPublicationEvent(pressReleaseUUID);
     } catch (err) {
         return handleGenericError(err, next);
     }
@@ -91,7 +92,7 @@ app.post('/delta', async (req, res, next) => {
         // - a ebucore:publishedStartDateTime in the past
         // - no ebucore:publicationStartDateTime
         const publicationEventsQueryResults = await findPlannedPublicationEvents();
-        console.log(`Found ${publicationEventsQueryResults.length} planned publication events`)
+        console.log(`Found ${publicationEventsQueryResults.length} planned publication events`);
 
         for (const pubEvent of publicationEventsQueryResults) {
             // Create a publication task for every publicationEvent the query returns
