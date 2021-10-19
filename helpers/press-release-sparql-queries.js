@@ -84,8 +84,7 @@ export function startPublicationByPublicationEvent(graph, publicationEvent, date
 		
 		INSERT DATA {
 			GRAPH ${sparqlEscapeUri(graph)} {
-				${sparqlEscapeUri(publicationEvent)}    ebucore:publicationStartDateTime 	${sparqlEscapeDateTime(dateTime)} ;
-									                    ebucore:publishedStartDateTime 		${sparqlEscapeDateTime(dateTime)} .
+				${sparqlEscapeUri(publicationEvent)} ebucore:publicationStartDateTime ${sparqlEscapeDateTime(dateTime)} .
 			}
 		}
 	`);
