@@ -12,7 +12,7 @@ const PREFIXES = `
 		`;
 
 export async function findPressReleaseWithPublicationEvent(id) {
-    const queryResult = await query(`
+  const queryResult = await query(`
 			 ${PREFIXES}
 
 			 SELECT ?graph ?pressRelease ?publicationEvent ?publicationStartDateTime ?started ?publicationChannels
@@ -27,25 +27,25 @@ export async function findPressReleaseWithPublicationEvent(id) {
 			 LIMIT 1
 			 `);
 
-    if (!queryResult.results.bindings.length) {
-        return null;
-    } else {
-        const bindings = queryResult.results.bindings[0];
+  if (!queryResult.results.bindings.length) {
+    return null;
+  } else {
+    const bindings = queryResult.results.bindings[0];
 
-        return {
-            bindings,
-            pressRelease: bindings.pressRelease.value,
-            graph: bindings.graph.value,
-            publicationEvent: bindings.publicationEvent.value,
-            plannedStartDate: bindings.publicationStartDateTime ? bindings.publicationStartDateTime.value : undefined,
-            started: bindings.started ? bindings.started.value : undefined,
-        };
-    }
+    return {
+      bindings,
+      pressRelease: bindings.pressRelease.value,
+      graph: bindings.graph.value,
+      publicationEvent: bindings.publicationEvent.value,
+      plannedStartDate: bindings.publicationStartDateTime ? bindings.publicationStartDateTime.value : undefined,
+      started: bindings.started ? bindings.started.value : undefined,
+    };
+  }
 
 }
 
 export async function removeFuturePublicationDate(graph, pressRelease) {
-    return await update(`
+  return await update(`
 		${PREFIXES}
 
 		DELETE {
@@ -62,7 +62,7 @@ export async function removeFuturePublicationDate(graph, pressRelease) {
 }
 
 export async function startPublicationByPressRelease(graph, pressRelease, dateTime) {
-    return await update(`
+  return await update(`
 		${PREFIXES}
 
 		INSERT {
@@ -79,7 +79,7 @@ export async function startPublicationByPressRelease(graph, pressRelease, dateTi
 }
 
 export async function startPublicationByPublicationEvent(graph, publicationEvent, dateTime) {
-    return await update(`
+  return await update(`
 		${PREFIXES}
 
 		INSERT DATA {
@@ -93,7 +93,7 @@ export async function startPublicationByPublicationEvent(graph, publicationEvent
 
 
 export async function getPublicationChannelsByPressRelease(graph, pressRelease) {
-    return await query(`
+  return await query(`
 		${PREFIXES}
 
 		SELECT ?pressRelease ?pubChannel
@@ -108,7 +108,7 @@ export async function getPublicationChannelsByPressRelease(graph, pressRelease) 
 }
 
 export async function getPublicationChannelsByPublicationEvent(graph, publicationEvent) {
-    return await query(`
+  return await query(`
 		${PREFIXES}
 
 		SELECT ?pubChannel
@@ -122,11 +122,11 @@ export async function getPublicationChannelsByPublicationEvent(graph, publicatio
 }
 
 export async function createPublicationTask(graph, publicationChannel, publicationEvent) {
-    const newId = uuid();
-    const notStartedURI = 'http://themis.vlaanderen.be/id/concept/publication-task-status/not-started';
-    const now = new Date();
+  const newId = uuid();
+  const notStartedURI = 'http://themis.vlaanderen.be/id/concept/publication-task-status/not-started';
+  const now = new Date();
 
-    return update(`
+  return update(`
 		${PREFIXES}
 		INSERT DATA {
 			GRAPH ${sparqlEscapeUri(graph)} {
@@ -146,31 +146,31 @@ export async function createPublicationTask(graph, publicationChannel, publicati
 }
 
 export async function createTasksByPressRelease(graph, pressRelease, publicationEvent) {
-    // get publicaton-channels linked to the press-release
-    const publicationChannels = (await getPublicationChannelsByPressRelease(graph, pressRelease)).results.bindings;
+  // get publicaton-channels linked to the press-release
+  const publicationChannels = (await getPublicationChannelsByPressRelease(graph, pressRelease)).results.bindings;
 
-    // create  a publicationTask for every channel linked to the press-release
-    for (let publicationChannel of publicationChannels) {
-        await createPublicationTask(graph, publicationChannel.pubChannel.value, publicationEvent);
-    }
+  // create  a publicationTask for every channel linked to the press-release
+  for (let publicationChannel of publicationChannels) {
+    await createPublicationTask(graph, publicationChannel.pubChannel.value, publicationEvent);
+  }
 
-    return;
+  return;
 }
 
 export async function createTasksByPublicationEvent(graph, publicationEvent) {
-    // get publicaton-channels linked to the publication event
-    const publicationChannels = (await getPublicationChannelsByPublicationEvent(graph, publicationEvent)).results.bindings;
+  // get publicaton-channels linked to the publication event
+  const publicationChannels = (await getPublicationChannelsByPublicationEvent(graph, publicationEvent)).results.bindings;
 
-    // create  a publicationTask for every channel linked to the press-release
-    for (let publicationChannel of publicationChannels) {
-        await createPublicationTask(graph, publicationChannel.pubChannel.value, publicationEvent);
-    }
+  // create  a publicationTask for every channel linked to the press-release
+  for (let publicationChannel of publicationChannels) {
+    await createPublicationTask(graph, publicationChannel.pubChannel.value, publicationEvent);
+  }
 }
 
 
 export async function findPlannedPublicationEvents() {
-    const now = new Date();
-    const queryResult = await query(`
+  const now = new Date();
+  const queryResult = await query(`
 			${PREFIXES}
 
 			SELECT ?graph ?publicationEvent
@@ -186,11 +186,11 @@ export async function findPlannedPublicationEvents() {
 			 }
 	`);
 
-    return queryResult.results.bindings.map((binding) => {
-        return {
-            graph: binding.graph.value,
-            publicationEvent: binding.publicationEvent.value,
-        };
-    });
+  return queryResult.results.bindings.map((binding) => {
+    return {
+      graph: binding.graph.value,
+      publicationEvent: binding.publicationEvent.value,
+    };
+  });
 
 }
