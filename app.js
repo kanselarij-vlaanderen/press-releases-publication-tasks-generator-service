@@ -80,8 +80,7 @@ app.post('/press-releases/:uuid/publish', async (req, res, next) => {
   }
 
   // if all went well, we respond with 200 (success)
-  res.sendStatus(200);
-
+  return res.sendStatus(200);
 });
 
 app.post('/delta', async (req, res, next) => {
@@ -94,10 +93,7 @@ app.post('/delta', async (req, res, next) => {
     console.log(`Found ${publicationEventsQueryResults.length} planned publication events`);
 
     for (const pubEvent of publicationEventsQueryResults) {
-      // Create a publication task for every publicationEvent the query returns
       await createTasksByPublicationEvent(pubEvent.graph, pubEvent.publicationEvent);
-
-      // update publicationEvent so that we know it has started
       await startPublicationByPublicationEvent(pubEvent.graph, pubEvent.publicationEvent, new Date());
     }
 
@@ -106,9 +102,7 @@ app.post('/delta', async (req, res, next) => {
   }
 
   // if all went well, we respond with 200 (success)
-  res.sendStatus(200);
-  return;
-
+  return res.sendStatus(200);
 });
 
 // use mu errorHandler middleware.

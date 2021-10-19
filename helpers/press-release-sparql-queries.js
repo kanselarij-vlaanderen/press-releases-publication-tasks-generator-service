@@ -146,10 +146,13 @@ export async function createPublicationTask(graph, publicationChannel, publicati
 }
 
 export async function createTasksByPressRelease(graph, pressRelease, publicationEvent) {
-  // get publicaton-channels linked to the press-release
   const publicationChannels = (await getPublicationChannelsByPressRelease(graph, pressRelease)).results.bindings;
+  if (publicationChannels.length) {
+    console.info(`Press-release of publication event ${publicationEvent} must be published on ${publicationChannels.length} publication-channels`);
+  } else {
+    console.info(`No publication-channels selected for publication event ${publicationEvent}`);
+  }
 
-  // create  a publicationTask for every channel linked to the press-release
   for (let publicationChannel of publicationChannels) {
     await createPublicationTask(graph, publicationChannel.pubChannel.value, publicationEvent);
   }
@@ -158,10 +161,13 @@ export async function createTasksByPressRelease(graph, pressRelease, publication
 }
 
 export async function createTasksByPublicationEvent(graph, publicationEvent) {
-  // get publicaton-channels linked to the publication event
   const publicationChannels = (await getPublicationChannelsByPublicationEvent(graph, publicationEvent)).results.bindings;
+  if (publicationChannels.length) {
+    console.info(`Press-release of publication event ${publicationEvent} must be published on ${publicationChannels.length} publication-channels`);
+  } else {
+    console.info(`No publication-channels selected for publication event ${publicationEvent}`);
+  }
 
-  // create  a publicationTask for every channel linked to the press-release
   for (let publicationChannel of publicationChannels) {
     await createPublicationTask(graph, publicationChannel.pubChannel.value, publicationEvent);
   }
@@ -177,10 +183,10 @@ export async function findPlannedPublicationEvents() {
 			 WHERE {
 				GRAPH ?graph {
 					{
-						?publicationEvent		a		                            ebucore:PublicationEvent ;
-						                        ebucore:publishedStartDateTime 		?plannedStart .
+						?publicationEvent a ebucore:PublicationEvent ;
+						    ebucore:publishedStartDateTime ?plannedStart .
 						FILTER ( ?plannedStart <= ${sparqlEscapeDateTime(now)} )
-						FILTER NOT EXISTS { ?publicationEvent 	ebucore:publicationStartDateTime 	?started }
+						FILTER NOT EXISTS { ?publicationEvent ebucore:publicationStartDateTime ?started . }
 					}
 				}
 			 }
@@ -192,5 +198,4 @@ export async function findPlannedPublicationEvents() {
       publicationEvent: binding.publicationEvent.value,
     };
   });
-
 }
