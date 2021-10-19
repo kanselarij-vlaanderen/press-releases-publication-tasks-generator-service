@@ -1,5 +1,5 @@
 import { sparqlEscapeString, sparqlEscapeUri, sparqlEscapeDateTime, uuid } from 'mu';
-import { querySudo as query } from '@lblod/mu-auth-sudo';
+import { querySudo as query, updateSudo as update } from '@lblod/mu-auth-sudo';
 
 const PREFIXES = `
 		PREFIX mu: ${sparqlEscapeUri('http://mu.semte.ch/vocabularies/core/')}
@@ -14,7 +14,7 @@ const PREFIXES = `
 export async function findPressReleaseWithPublicationEvent(id) {
     const queryResult = await query(`
 			 ${PREFIXES}
-			 
+
 			 SELECT ?graph ?pressRelease ?publicationEvent ?publicationStartDateTime ?started ?publicationChannels
 			 WHERE {
 				GRAPH ?graph {
@@ -44,10 +44,10 @@ export async function findPressReleaseWithPublicationEvent(id) {
 
 }
 
-export function removeFuturePublicationDate(graph, pressRelease) {
-    return query(`
+export async function removeFuturePublicationDate(graph, pressRelease) {
+    return await update(`
 		${PREFIXES}
-		
+
 		DELETE {
 			GRAPH ${sparqlEscapeUri(graph)} {
 				?publicationEvent	ebucore:publishedStartDateTime	?publishedStartDateTime .
@@ -61,10 +61,10 @@ export function removeFuturePublicationDate(graph, pressRelease) {
 	`);
 }
 
-export function startPublicationByPressRelease(graph, pressRelease, dateTime) {
-    return query(`
+export async function startPublicationByPressRelease(graph, pressRelease, dateTime) {
+    return await update(`
 		${PREFIXES}
-		
+
 		INSERT {
 			GRAPH ${sparqlEscapeUri(graph)} {
 				?publicationEvent	ebucore:publicationStartDateTime 	${sparqlEscapeDateTime(dateTime)} ;
@@ -78,10 +78,10 @@ export function startPublicationByPressRelease(graph, pressRelease, dateTime) {
 	`);
 }
 
-export function startPublicationByPublicationEvent(graph, publicationEvent, dateTime) {
-    return query(`
+export async function startPublicationByPublicationEvent(graph, publicationEvent, dateTime) {
+    return await update(`
 		${PREFIXES}
-		
+
 		INSERT DATA {
 			GRAPH ${sparqlEscapeUri(graph)} {
 				${sparqlEscapeUri(publicationEvent)} ebucore:publicationStartDateTime ${sparqlEscapeDateTime(dateTime)} .
@@ -92,10 +92,10 @@ export function startPublicationByPublicationEvent(graph, publicationEvent, date
 }
 
 
-export function getPublicationChannelsByPressRelease(graph, pressRelease) {
-    return query(`
+export async function getPublicationChannelsByPressRelease(graph, pressRelease) {
+    return await query(`
 		${PREFIXES}
-		
+
 		SELECT ?pressRelease ?pubChannel
 		WHERE {
 			GRAPH ${sparqlEscapeUri(graph)} {
@@ -107,10 +107,10 @@ export function getPublicationChannelsByPressRelease(graph, pressRelease) {
 
 }
 
-export function getPublicationChannelsByPublicationEvent(graph, publicationEvent) {
-    return query(`
+export async function getPublicationChannelsByPublicationEvent(graph, publicationEvent) {
+    return await query(`
 		${PREFIXES}
-		
+
 		SELECT ?pubChannel
 		WHERE {
 			GRAPH ${sparqlEscapeUri(graph)} {
@@ -121,26 +121,26 @@ export function getPublicationChannelsByPublicationEvent(graph, publicationEvent
 
 }
 
-export function createPublicationTask(graph, publicationChannel, publicationEvent) {
+export async function createPublicationTask(graph, publicationChannel, publicationEvent) {
     const newId = uuid();
     const notStartedURI = 'http://themis.vlaanderen.be/id/concept/publication-task-status/not-started';
     const now = new Date();
 
-    return query(`
+    return update(`
 		${PREFIXES}
 		INSERT DATA {
 			GRAPH ${sparqlEscapeUri(graph)} {
-		
+
 			vlpt:${newId} 		a 								ext:PublicationTask ;
 								adms:status 					${sparqlEscapeUri(notStartedURI)} ;
 						    	dct:created						${sparqlEscapeDateTime(now)};
 						    	dct:modified					${sparqlEscapeDateTime(now)};
 						    	ext:publicationChannel			${sparqlEscapeUri(publicationChannel)};
 						    	mu:uuid 						${sparqlEscapeString(newId)}  .
-						    	
+
 			${sparqlEscapeUri(publicationEvent)} 	prov:generated		vlpt:${newId} .
 			}
-		} 
+		}
 
 	`);
 }
@@ -172,18 +172,18 @@ export async function findPlannedPublicationEvents() {
     const now = new Date();
     const queryResult = await query(`
 			${PREFIXES}
-			
+
 			SELECT ?graph ?publicationEvent
 			 WHERE {
 				GRAPH ?graph {
 					{
 						?publicationEvent		a		                            ebucore:PublicationEvent ;
 						                        ebucore:publishedStartDateTime 		?plannedStart .
-						FILTER ( ?plannedStart <= ${sparqlEscapeDateTime(now)} )  
-						FILTER NOT EXISTS { ?publicationEvent 	ebucore:publicationStartDateTime 	?started } 
+						FILTER ( ?plannedStart <= ${sparqlEscapeDateTime(now)} )
+						FILTER NOT EXISTS { ?publicationEvent 	ebucore:publicationStartDateTime 	?started }
 					}
 				}
-			 }	
+			 }
 	`);
 
     return queryResult.results.bindings.map((binding) => {
