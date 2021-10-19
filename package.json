@@ -1,6 +1,6 @@
 {
   "name": "press-releases-publication-tasks-generator-service",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Een eerste versie van deze microservice biedt een endpoint aan dat voor een gegeven persbericht id de nodige publication task per publication channel zal klaarzetten.",
   "main": "app.js",
   "scripts": {
