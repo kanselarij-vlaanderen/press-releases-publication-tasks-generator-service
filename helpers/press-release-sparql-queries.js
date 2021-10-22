@@ -18,10 +18,10 @@ export async function findPressReleaseWithPublicationEvent(id) {
 			 SELECT ?graph ?pressRelease ?publicationEvent ?publicationStartDateTime ?started ?publicationChannels
 			 WHERE {
 				GRAPH ?graph {
-					?pressRelease 					mu:uuid 									${sparqlEscapeString(id)} ;
-									       			ebucore:isScheduledOn 						?publicationEvent .
-					OPTIONAL { ?publicationEvent 	ebucore:publicationStartDateTime			?started }
-					OPTIONAL { ?publicationEvent 	ebucore:publishedStartDateTime	 			?publicationStartDateTime }
+					?pressRelease mu:uuid ${sparqlEscapeString(id)} ;
+					  ebucore:isScheduledOn ?publicationEvent .
+					OPTIONAL { ?publicationEvent ebucore:publicationStartDateTime ?started }
+					OPTIONAL { ?publicationEvent ebucore:publishedStartDateTime ?publicationStartDateTime }
 				}
 			 }
 			 LIMIT 1
@@ -54,8 +54,8 @@ export async function removeFuturePublicationDate(graph, pressRelease) {
 			}
 		} WHERE {
 			GRAPH ${sparqlEscapeUri(graph)} {
-				${sparqlEscapeUri(pressRelease)}		ebucore:isScheduledOn 			?publicationEvent .
-				?publicationEvent						ebucore:publishedStartDateTime 	?publishedStartDateTime .
+				${sparqlEscapeUri(pressRelease)} ebucore:isScheduledOn ?publicationEvent .
+				?publicationEvent ebucore:publishedStartDateTime ?publishedStartDateTime .
 			}
 		}
 	`);
@@ -67,12 +67,12 @@ export async function startPublicationByPressRelease(graph, pressRelease, dateTi
 
 		INSERT {
 			GRAPH ${sparqlEscapeUri(graph)} {
-				?publicationEvent	ebucore:publicationStartDateTime 	${sparqlEscapeDateTime(dateTime)} ;
-									ebucore:publishedStartDateTime 		${sparqlEscapeDateTime(dateTime)} .
+				?publicationEvent	ebucore:publicationStartDateTime ${sparqlEscapeDateTime(dateTime)} ;
+				  ebucore:publishedStartDateTime ${sparqlEscapeDateTime(dateTime)} .
 			}
 		} WHERE {
 			GRAPH ${sparqlEscapeUri(graph)} {
-				${sparqlEscapeUri(pressRelease)}	ebucore:isScheduledOn 				?publicationEvent .
+				${sparqlEscapeUri(pressRelease)} ebucore:isScheduledOn ?publicationEvent .
 			}
 		}
 	`);
@@ -84,7 +84,7 @@ export async function startPublicationByPublicationEvent(graph, publicationEvent
 
 		INSERT DATA {
 			GRAPH ${sparqlEscapeUri(graph)} {
-				${sparqlEscapeUri(publicationEvent)} ebucore:publicationStartDateTime ${sparqlEscapeDateTime(dateTime)} .
+			  ${sparqlEscapeUri(publicationEvent)} ebucore:publicationStartDateTime ${sparqlEscapeDateTime(dateTime)} .
 			}
 		}
 	`);
@@ -99,8 +99,8 @@ export async function getPublicationChannelsByPressRelease(graph, pressRelease) 
 		SELECT ?pressRelease ?pubChannel
 		WHERE {
 			GRAPH ${sparqlEscapeUri(graph)} {
-				${sparqlEscapeUri(pressRelease)}		ebucore:isScheduledOn 				?publicationEvent .
-				?pubChannel						        ebucore:hasChannelPublicationEvent 	?publicationEvent .
+				${sparqlEscapeUri(pressRelease)} ebucore:isScheduledOn ?publicationEvent .
+				?pubChannel ebucore:hasChannelPublicationEven ?publicationEvent .
 			}
 		}
 	`);
@@ -131,14 +131,14 @@ export async function createPublicationTask(graph, publicationChannel, publicati
 		INSERT DATA {
 			GRAPH ${sparqlEscapeUri(graph)} {
 
-			vlpt:${newId} 		a 								ext:PublicationTask ;
-								adms:status 					${sparqlEscapeUri(notStartedURI)} ;
-						    	dct:created						${sparqlEscapeDateTime(now)};
-						    	dct:modified					${sparqlEscapeDateTime(now)};
-						    	ext:publicationChannel			${sparqlEscapeUri(publicationChannel)};
-						    	mu:uuid 						${sparqlEscapeString(newId)}  .
+			vlpt:${newId} a ext:PublicationTask ;
+			  adms:status ${sparqlEscapeUri(notStartedURI)} ;
+				  dct:created ${sparqlEscapeDateTime(now)};
+				  dct:modified ${sparqlEscapeDateTime(now)};
+				  ext:publicationChannel ${sparqlEscapeUri(publicationChannel)};
+				  mu:uuid ${sparqlEscapeString(newId)}  .
 
-			${sparqlEscapeUri(publicationEvent)} 	prov:generated		vlpt:${newId} .
+			${sparqlEscapeUri(publicationEvent)} prov:generated vlpt:${newId} .
 			}
 		}
 
@@ -184,9 +184,10 @@ export async function findPlannedPublicationEvents() {
 				GRAPH ?graph {
 					{
 						?publicationEvent a ebucore:PublicationEvent ;
-						    ebucore:publishedStartDateTime ?plannedStart .
+						  ebucore:publishedStartDateTime ?plannedStart .
 						FILTER ( ?plannedStart <= ${sparqlEscapeDateTime(now)} )
 						FILTER NOT EXISTS { ?publicationEvent ebucore:publicationStartDateTime ?started . }
+						FILTER ( strstarts(str(?graph), "http://mu.semte.ch/graphs/organizations/") )
 					}
 				}
 			 }
